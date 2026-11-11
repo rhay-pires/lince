@@ -562,9 +562,9 @@ function formatarReais(centavos) {
   function parseItens(txt) {
     var parts = txt.split("+"), out = [];
     for (var i = 0; i < parts.length; i++) {
-      var m = parts[i].trim().match(/^(-?[\d.,]+)\s*[x×*]\s*(-?\d+)$/i);
+      var m = parts[i].trim().match(/^(-?[\d.,]+)\s*[x×*]\s*(-?[\d.,]+)$/i);
       if (!m) return null;
-      out.push([parseFloat(m[1].replace(",", ".")), parseInt(m[2], 10)]);
+      out.push([parseFloat(m[1].replace(",", ".")), parseFloat(m[2].replace(",", "."))]);
     }
     return out;
   }
