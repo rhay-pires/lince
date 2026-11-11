@@ -145,6 +145,7 @@ td.m { font-family: var(--mono); font-size: 0.8rem; }
 .tester h3 { font-size: 1.05rem; font-weight: 800; }
 .tgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 .tgrid .field input { font-family: var(--mono); font-size: 0.88rem; }
+.res .why { margin-top: 6px; padding-top: 8px; border-top: 1px dashed #c9c9c9; line-height: 1.5; font-family: inherit; }
 .res { background: var(--soft); border-radius: 12px; padding: 14px; font-family: var(--mono); font-size: 0.85rem; display: grid; gap: 4px; }
 .hidden-help { color: var(--muted); font-size: 0.85rem; }
 .finding { margin-top: 28px; border: 1.5px solid var(--brand); border-radius: 16px; padding: 18px; display: grid; gap: 14px; background: var(--brand-soft); }
@@ -576,9 +577,43 @@ function formatarReais(centavos) {
     if (!itens || isNaN(k)) { res.textContent = "Não entendi os itens ou a distância. Use o formato 12.50x1 + 8x2."; return; }
     var cup = $("t-cupom").value;
     var got = fecharPedido(itens, k, cup);
-    var esp = $("t-esp").value;
-    var p = got === esp;
-    res.innerHTML = "<div>Chamada: " + esc(chamada(itens, k, cup)) + "</div><div>Esperado: " + esc(esp) + "</div><div>Obtido: " + esc(got) + "</div><div class=\"" + (p ? "yes" : "no") + "\">" + (p ? "Passou: Sim" : "Passou: NÃO") + "</div>";
+    var esp = $("t-esp").value.trim();
+    if (esp === "") { res.textContent = "Preencha a saída esperada (por exemplo R$ 27,00 ou ERRO: item inválido)."; return; }
+
+    // Aceita "27", "27,00", "27.00", "R$27,00" e "R$ 27,00" como o mesmo valor.
+    function paraCentavos(t) {
+      var m = String(t).trim().match(/^(?:R\$)?\s*(\d+(?:[.,]\d{1,2})?)$/i);
+      return m ? Math.round(parseFloat(m[1].replace(",", ".")) * 100) : null;
+    }
+    var calc = calcularPedido(itens, k, cup);
+    var espC = paraCentavos(esp), gotC = calc.erro ? null : calc.total;
+    var p = (espC !== null && gotC !== null) ? espC === gotC : esp.toLowerCase() === got.toLowerCase();
+
+    var html = "<div>Chamada: " + esc(chamada(itens, k, cup)) + "</div><div>Esperado: " + esc(esp) + "</div><div>Obtido: " + esc(got) + "</div>";
+    html += "<div class=\"" + (p ? "yes" : "no") + "\">" + (p ? "Passou: Sim" : "Passou: NÃO") + "</div>";
+
+    if (!p) {
+      var porque = [];
+      if (calc.erro) {
+        porque.push("O programa recusou o pedido e devolveu <b>" + esc(calc.erro) + "</b>. Você esperava " + esc(esp) + ".");
+      } else {
+        var br = function (c) { return formatarReais(c); };
+        porque.push("A conta do programa: subtotal " + br(calc.subtotal) + " − desconto " + br(calc.desconto) + " + frete " + br(calc.frete) + " = <b>" + br(calc.total) + "</b>" + (calc.cupomAplicado ? " (cupom " + calc.cupomAplicado + ")" : " (sem cupom aplicado)") + ".");
+        if (espC === null && /^erro/i.test(esp)) {
+          porque.push("Você esperava um erro (" + esc(esp) + "), mas o programa <b>não detectou erro</b> e calculou o pedido normalmente. Então a validação desse caso não está funcionando.");
+        } else if (espC === null) {
+          porque.push("A saída esperada que você digitou não é um valor em reais. O programa devolveu um valor, então o esperado deveria ser um total como R$ 27,00.");
+        } else {
+          var dif = gotC - espC;
+          porque.push("Diferença: o programa deu " + br(Math.abs(dif)) + (dif > 0 ? " a mais" : " a menos") + " do que o esperado.");
+          if (Math.abs(dif) === calc.frete && calc.frete > 0) porque.push("Essa diferença é igual ao frete: confira se o esperado deveria incluir (ou não) o frete de " + br(calc.frete) + ".");
+          else if (calc.desconto > 0 && Math.abs(dif) === calc.desconto) porque.push("Essa diferença é igual ao desconto do cupom: confira se o esperado deveria aplicar (ou não) o desconto de " + br(calc.desconto) + ".");
+          else if (calc.frete === 0 && calc.subtotal >= 10000) porque.push("O subtotal é de R$ 100,00 ou mais, então o frete é grátis (regra 5).");
+        }
+      }
+      html += "<div class=\"why\"><b>Por que não passou:</b><br>" + porque.join("<br>") + "</div>";
+    }
+    res.innerHTML = html;
   });
 
   /* ---------- Início ---------- */
