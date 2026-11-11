@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lince Delivery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: app de delivery em fundo branco. Cardápio à esquerda, sacola fixa à direita (no celular, abaixo, com barra fixa).
+   Cor: laranja-queimado para ação, verde só para "ok", vermelho só para erro. Tema único e claro, por pedido. */
+:root {
+  --bg: #FFFFFF;
+  --soft: #F8F5F1;
+  --ink: #1F1A17;
+  --muted: #6B645D;
+  --line: #ECE6DF;
+  --brand: #D9480F;
+  --brand-ink: #FFFFFF;
+  --brand-soft: #FFF1E8;
+  --ok: #1B7F51;
+  --ok-soft: #E5F4EB;
+  --err: #C52A1E;
+  --err-soft: #FDECEA;
+  --code-bg: #1F1A17;
+  --code-ink: #F2E9E0;
+  --code-dim: #9C8F83;
+  --code-kw: #FFB27A;
+  --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 96px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; }
+h1, h2, h3, p { margin: 0; }
+button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
+.mono { font-family: var(--mono); }
+
+/* Topo */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.25rem; letter-spacing: -0.02em; }
+.logo i { width: 36px; height: 36px; border-radius: 11px; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; font-style: normal; font-size: 1.2rem; }
+.tabs { display: flex; gap: 4px; background: var(--soft); padding: 4px; border-radius: 12px; }
+.tabs button { border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 0.92rem; padding: 8px 16px; border-radius: 9px; }
+.tabs button[aria-selected="true"] { background: var(--bg); color: var(--ink); box-shadow: 0 1px 3px rgba(31, 26, 23, 0.14); }
+
+/* Banner */
+.banner { background: var(--brand-soft); border-radius: 20px; padding: 24px; display: grid; gap: 14px; }
+.banner h1 { font-size: clamp(1.7rem, 5vw, 2.6rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; max-width: 18ch; }
+.banner p { color: var(--muted); max-width: 52ch; }
+.promos { display: flex; flex-wrap: wrap; gap: 8px; }
+.promo { border: 1.5px dashed var(--brand); background: var(--bg); color: var(--brand); border-radius: 10px; padding: 7px 12px; font-weight: 700; font-size: 0.85rem; }
+.promo small { font-weight: 500; color: var(--muted); margin-left: 6px; }
+.promo:hover { background: var(--brand); color: var(--brand-ink); }
+.promo:hover small { color: var(--brand-ink); }
+
+/* Layout principal */
+.shop { display: grid; gap: 24px; margin-top: 24px; align-items: start; }
+@media (min-width: 960px) { .shop { grid-template-columns: minmax(0, 1fr) 380px; } .bag { position: sticky; top: 16px; } .mobile-bar { display: none !important; } }
+
+.cats { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px; }
+.cats button { flex: none; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 99px; padding: 7px 16px; font-weight: 600; font-size: 0.9rem; }
+.cats button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.dish { border: 1px solid var(--line); border-radius: 16px; padding: 12px; display: grid; gap: 10px; align-content: start; background: var(--bg); min-width: 0; }
+.dish .art { height: 104px; border-radius: 12px; display: grid; place-items: center; font-size: 3rem; }
+.dish h3 { font-size: 1rem; font-weight: 700; }
+.dish p { color: var(--muted); font-size: 0.85rem; }
+.dish .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.price { font-weight: 800; font-variant-numeric: tabular-nums; }
+.add { border: 0; background: var(--brand); color: var(--brand-ink); font-weight: 700; border-radius: 10px; padding: 8px 16px; font-size: 0.9rem; }
+.add:hover { filter: brightness(0.92); }
+.step { display: inline-flex; align-items: center; background: var(--brand-soft); border-radius: 10px; }
+.step button { border: 0; background: transparent; color: var(--brand); width: 34px; height: 34px; font-size: 1.2rem; font-weight: 800; }
+.step span { min-width: 22px; text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* Sacola */
+.bag { border: 1px solid var(--line); border-radius: 20px; padding: 18px; display: grid; gap: 14px; background: var(--bg); box-shadow: 0 8px 28px rgba(31, 26, 23, 0.07); min-width: 0; scroll-margin-top: 12px; }
+.bag h2 { font-size: 1.15rem; font-weight: 800; display: flex; justify-content: space-between; align-items: baseline; }
+.bag h2 small { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+.lines { display: grid; gap: 10px; }
+.cartline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; }
+.cartline b { font-weight: 600; font-size: 0.93rem; }
+.cartline .sub { color: var(--muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.empty { background: var(--soft); border-radius: 12px; padding: 18px; color: var(--muted); text-align: center; font-size: 0.92rem; }
+.field { display: grid; gap: 6px; }
+.field > label, .field > .lab { font-size: 0.8rem; font-weight: 700; color: var(--muted); display: flex; justify-content: space-between; }
+.field > .lab output { color: var(--ink); font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--brand); }
+.coupon { display: flex; gap: 8px; }
+input[type="text"], input[type="number"] { font: inherit; width: 100%; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); }
+input[type="text"]:focus, input[type="number"]:focus { border-color: var(--brand); outline: none; }
+.btn2 { border: 1.5px solid var(--ink); background: var(--bg); color: var(--ink); font-weight: 700; border-radius: 10px; padding: 0 16px; flex: none; }
+.btn2:hover { background: var(--ink); color: var(--bg); }
+.note { font-size: 0.82rem; border-radius: 8px; padding: 6px 10px; }
+.note.ok { background: var(--ok-soft); color: var(--ok); }
+.note.info { background: var(--soft); color: var(--muted); }
+
+.sum { display: grid; gap: 6px; border-top: 1px dashed var(--line); padding-top: 12px; font-size: 0.92rem; }
+.sum .l { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sum .l.g span:last-child { color: var(--ok); font-weight: 700; }
+.sum .tot { display: flex; justify-content: space-between; align-items: baseline; font-size: 1.5rem; font-weight: 800; color: var(--ink); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.alert { background: var(--err-soft); color: var(--err); border-radius: 12px; padding: 12px 14px; font-size: 0.92rem; font-weight: 600; }
+.alert code { display: block; margin-top: 6px; font-family: var(--mono); font-size: 0.75rem; font-weight: 400; color: var(--ink); }
+.fn { font-size: 0.74rem; color: var(--muted); font-family: var(--mono); }
+.cta { border: 0; background: var(--brand); color: var(--brand-ink); font-weight: 800; font-size: 1rem; border-radius: 14px; padding: 14px; width: 100%; }
+.cta:hover { filter: brightness(0.92); }
+.cta:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; filter: none; }
+.done { background: var(--ok-soft); color: var(--ok); border-radius: 12px; padding: 12px 14px; font-size: 0.9rem; font-weight: 600; }
+
+.mobile-bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); border-top: 1px solid var(--line); z-index: 5; }
+.mobile-bar button { width: 100%; border: 0; background: var(--brand); color: var(--brand-ink); border-radius: 14px; padding: 13px 16px; font-weight: 800; display: flex; justify-content: space-between; gap: 12px; }
+
+/* Abas Código e Testes */
+.page-head { display: grid; gap: 6px; margin: 28px 0 18px; max-width: 70ch; }
+.page-head h2 { font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 800; letter-spacing: -0.02em; }
+.page-head p { color: var(--muted); }
+pre { margin: 0; background: var(--code-bg); color: var(--code-ink); border-radius: 16px; padding: 20px; overflow-x: auto; font-family: var(--mono); font-size: 0.8rem; line-height: 1.75; tab-size: 2; }
+pre .c { color: var(--code-dim); }
+pre .k { color: var(--code-kw); }
+.how { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.how div { background: var(--soft); border-radius: 14px; padding: 14px 16px; font-size: 0.9rem; color: var(--muted); }
+.how b { display: block; color: var(--ink); margin-bottom: 4px; }
+.how code { font-family: var(--mono); font-size: 0.82em; background: var(--bg); padding: 1px 6px; border-radius: 5px; color: var(--ink); }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--soft); font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.m { font-family: var(--mono); font-size: 0.8rem; }
+.yes { color: var(--ok); font-weight: 800; }
+.no { color: var(--err); font-weight: 800; }
+.runbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 14px; }
+.runbar .big { font-weight: 800; font-size: 1.1rem; }
+.tester { margin-top: 28px; border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 14px; }
+.tester h3 { font-size: 1.05rem; font-weight: 800; }
+.tgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.tgrid .field input { font-family: var(--mono); font-size: 0.88rem; }
+.res { background: var(--soft); border-radius: 12px; padding: 14px; font-family: var(--mono); font-size: 0.85rem; display: grid; gap: 4px; }
+.hidden-help { color: var(--muted); font-size: 0.85rem; }
+.finding { margin-top: 28px; border: 1.5px solid var(--brand); border-radius: 16px; padding: 18px; display: grid; gap: 14px; background: var(--brand-soft); }
+.finding h3 { font-size: 1.05rem; font-weight: 800; }
+.finding .scroll { background: var(--bg); }
+.finding p { font-size: 0.92rem; color: var(--muted); }
+.finding p b { color: var(--ink); }
+.eyebrow { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brand); font-weight: 600; }
+.traps { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.trap { border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 10px; align-content: start; background: var(--bg); }
+.trap q { font-weight: 800; font-size: 1.05rem; line-height: 1.3; quotes: "“" "”"; }
+.trap p { color: var(--muted); font-size: 0.93rem; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="logo"><i aria-hidden="true">L</i>Lince Delivery</div>
+  <div class="tabs" role="tablist" aria-label="Áreas do app">
+    <button role="tab" id="tab-pedir" aria-selected="true" aria-controls="p-pedir" type="button">Pedir</button>
+    <button role="tab" id="tab-codigo" aria-selected="false" aria-controls="p-codigo" type="button">Código</button>
+    <button role="tab" id="tab-testes" aria-selected="false" aria-controls="p-testes" type="button">Testes</button>
+    <button role="tab" id="tab-raiox" aria-selected="false" aria-controls="p-raiox" type="button">Raio-X</button>
+  </div>
+</header>
+
+<!-- ============ PEDIR ============ -->
+<main id="p-pedir" role="tabpanel" aria-labelledby="tab-pedir">
+  <section class="banner">
+    <h1>Fome? Seu pedido chega rápido.</h1>
+    <p>Monte a sacola, escolha a distância e use um cupom. Quem calcula tudo é a função <b class="mono">fecharPedido</b>, a mesma do teste técnico.</p>
+    <div class="promos">
+      <button class="promo" type="button" data-cupom="LINCE10">LINCE10 <small>10% de desconto, até R$ 15</small></button>
+      <button class="promo" type="button" data-cupom="FRETEGRATIS">FRETEGRATIS <small>frete grátis</small></button>
+    </div>
+  </section>
+
+  <div class="shop">
+    <div>
+      <div class="cats" id="cats" role="group" aria-label="Categorias"></div>
+      <div class="menu" id="menu"></div>
+    </div>
+
+    <aside class="bag" id="bag" aria-label="Sacola">
+      <h2>Sua sacola <small id="bagcount"></small></h2>
+      <div class="lines" id="lines"></div>
+
+      <div class="field">
+        <div class="lab"><span>Distância da entrega</span><output id="kmout" for="km">3,5 km</output></div>
+        <input id="km" type="range" min="0.5" max="10" step="0.5" value="3.5">
+        <span class="hint" style="font-size:0.78rem;color:var(--muted)">A loja entrega até 8 km.</span>
+      </div>
+
+      <div class="field">
+        <label for="cupom">Cupom de desconto</label>
+        <div class="coupon">
+          <input id="cupom" type="text" placeholder="Digite o cupom" autocomplete="off" spellcheck="false">
+          <button class="btn2" id="apply" type="button">Aplicar</button>
+        </div>
+        <div id="cupomnote"></div>
+      </div>
+
+      <div id="summary"></div>
+      <button class="cta" id="finish" type="button">Finalizar pedido</button>
+      <div id="done"></div>
+    </aside>
+  </div>
+</main>
+
+<!-- ============ CÓDIGO ============ -->
+<section id="p-codigo" role="tabpanel" aria-labelledby="tab-codigo" hidden>
+  <div class="page-head">
+    <h2>O código que faz a conta</h2>
+    <p>O código abaixo não é uma cópia: é o texto das próprias funções que estão rodando neste app. Cada linha tem um comentário em português simples. Leiam de cima para baixo.</p>
+  </div>
+  <div class="how">
+    <div><b>1. calcularPedido</b>Faz toda a conta e devolve os valores em <code>centavos</code>, para não errar com vírgula.</div>
+    <div><b>2. fecharPedido</b>É a função do teste. Devolve o texto final, como <code>"R$ 55,00"</code>, ou a mensagem de erro.</div>
+    <div><b>3. formatarReais</b>Troca ponto por vírgula e coloca o <code>R$</code> na frente.</div>
+  </div>
+  <pre id="source" aria-label="Código-fonte comentado"></pre>
+</section>
+
+<!-- ============ TESTES ============ -->
+<section id="p-testes" role="tabpanel" aria-labelledby="tab-testes" hidden>
+  <div class="page-head">
+    <h2>Testes</h2>
+    <p>Os 10 casos do caderno rodam na função de verdade. Depois, use o testador para os 3 casos ocultos que o professor revelar.</p>
+  </div>
+  <div class="runbar">
+    <button class="cta" id="run" type="button" style="width:auto;padding:11px 22px">Rodar os 10 testes</button>
+    <span class="big" id="score"></span>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Caso</th><th>Chamada</th><th>Esperado</th><th>Obtido</th><th>Passou?</th></tr></thead>
+      <tbody id="cases"></tbody>
+    </table>
+  </div>
+
+  <div class="finding" id="achado">
+    <div class="eyebrow">Diário de prompts · erro da IA</div>
+    <h3>Erro da IA que a dupla pegou</h3>
+    <p>O código feito pela IA aceitava duas entradas sem sentido. As 10 regras do caderno não falam delas, e a IA não validou.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Problema</th><th>Chamada</th><th>Antes</th><th>Agora</th><th>Esperado</th><th>Passou?</th></tr></thead>
+        <tbody id="finds"></tbody>
+      </table>
+    </div>
+    <p><b>Como a dupla percebeu:</b> pedimos a outra IA para revisar o código. Ela apontou os dois casos, e conferimos rodando a função com −4 km e com quantidade 1,5: os dois passavam como pedido válido.</p>
+    <p><b>O que corrigimos:</b> distância menor que zero devolve <span class="mono">ERRO: distância inválida</span>, e quantidade que não é inteira devolve <span class="mono">ERRO: item inválido</span>. As duas linhas novas estão marcadas como CORREÇÃO na aba Código. Os 10 casos do caderno continuam passando.</p>
+  </div>
+
+  <form class="tester" id="tester" autocomplete="off">
+    <h3>Testar um caso novo (casos ocultos)</h3>
+    <p class="hidden-help">Digite os itens como <span class="mono">preço x quantidade</span>, separados por <span class="mono">+</span>. Exemplo: <span class="mono">12.50x1 + 8x2</span>.</p>
+    <div class="tgrid">
+      <div class="field"><label for="t-itens">Itens</label><input id="t-itens" type="text" value="22x1"></div>
+      <div class="field"><label for="t-km">Distância (km)</label><input id="t-km" type="number" step="0.5" value="3"></div>
+      <div class="field"><label for="t-cupom">Cupom</label><input id="t-cupom" type="text" value=""></div>
+      <div class="field"><label for="t-esp">Saída esperada</label><input id="t-esp" type="text" value="R$ 27,00"></div>
+    </div>
+    <div><button class="cta" type="submit" style="width:auto;padding:11px 22px">Rodar este caso</button></div>
+    <div class="res" id="t-res" aria-live="polite">Preencha e rode para ver o resultado.</div>
+  </form>
+</section>
+
+<!-- ============ RAIO-X ============ -->
+<section id="p-raiox" role="tabpanel" aria-labelledby="tab-raiox" hidden>
+  <div class="page-head">
+    <h2>Pegadinhas da vaga</h2>
+    <p>Na etapa 1, a dupla precisa achar os 2 requisitos da vaga de Dev Jr da Lince que parecem normais, mas são um problema. Estes são os nossos.</p>
+  </div>
+  <div class="traps">
+    <article class="trap">
+      <div class="eyebrow">Pegadinha 1</div>
+      <q>2 anos de experiência com desenvolvimento em produção</q>
+      <p>A vaga é júnior e pede que o candidato esteja cursando a graduação, então exigir 2 anos de experiência é contraditório e exclui justamente quem a vaga diz querer.</p>
+    </article>
+    <article class="trap">
+      <div class="eyebrow">Pegadinha 2</div>
+      <q>Disponibilidade para horas extras e fins de semana em entregas críticas</q>
+      <p>É uma exigência sem limite nem compensação, que destoa dos benefícios oferecidos (CLT, híbrido) e sugere que o time costuma se organizar mal com prazos.</p>
+    </article>
+  </div>
+</section>
+
+</div>
+
+<div class="mobile-bar" id="mbar"><button type="button" id="mbtn"><span id="mcount">Sacola</span><span id="mtotal"></span></button></div>
+
+<script>
+/* =====================================================================
+   AS FUNÇÕES DO TESTE TÉCNICO
+   Tudo aqui dentro (inclusive os comentários) aparece na aba "Código".
+   ===================================================================== */
+
+// calcularPedido: faz toda a conta. Os valores saem em CENTAVOS (R$ 10,50 vira 1050).
+function calcularPedido(itens, distanciaKm, cupom) {
+
+  // REGRA 2: item inválido. Olhamos cada par [preço, quantidade] da lista.
+  for (const [preco, quantidade] of itens) {
+    // quantidade zero ou negativa, ou preço negativo, é erro (preço zero pode!)
+    // CORREÇÃO 2: !Number.isInteger(quantidade) pega quantidade quebrada, como 1.5
+    if (quantidade <= 0 || preco < 0 || !Number.isInteger(quantidade)) {
+      return { erro: "ERRO: item inválido" }; // "return" para tudo aqui e devolve o erro
+    }
+  }
+
+  // REGRA 1: subtotal = soma de (preço × quantidade) de todos os itens.
+  let subtotal = 0; // começa em zero centavos
+  for (const [preco, quantidade] of itens) {
+    // Math.round(preco * 100) transforma reais em centavos sem erro de vírgula
+    subtotal += Math.round(preco * 100) * quantidade;
+  }
+
+  // REGRA 3: pedido mínimo. Abaixo de R$ 20,00 (2000 centavos) a loja não entrega.
+  // Esta checagem vem ANTES da distância: se houver 2 problemas, vale o primeiro.
+  if (subtotal < 2000) {
+    return { erro: "ERRO: pedido mínimo de R$ 20,00" };
+  }
+
+  // CORREÇÃO 1: distância negativa não existe (ex.: -4 km). Antes ela caía no frete de R$ 5.
+  if (distanciaKm < 0) {
+    return { erro: "ERRO: distância inválida" };
+  }
+
+  // REGRA 4: frete pela distância. Acima de 8 km está fora da área de entrega.
+  if (distanciaKm > 8) {
+    return { erro: "ERRO: fora da área de entrega" };
+  }
+  // Até 3 km (inclusive) o frete é R$ 5,00 (500 centavos); de 3 a 8 km é R$ 9,00.
+  let frete = distanciaKm <= 3 ? 500 : 900;
+
+  // REGRA 5: frete grátis com subtotal de R$ 100,00 (10000 centavos) ou mais.
+  // Olha o subtotal ANTES do desconto do cupom (regra 8).
+  if (subtotal >= 10000) {
+    frete = 0;
+  }
+
+  // REGRAS 6 e 7: cupom.
+  // String(cupom || "") evita erro se vier vazio; trim() tira espaços das pontas;
+  // toUpperCase() deixa tudo em maiúsculas, então "lince10" e "LINCE10" valem igual.
+  const codigo = String(cupom || "").trim().toUpperCase();
+  let desconto = 0; // sem cupom, o desconto é zero
+  let cupomAplicado = null; // guarda qual cupom valeu (só para mostrar na tela)
+
+  if (codigo === "LINCE10") {
+    // 10% do subtotal. (subtotal + 5) / 10 arredonda para cima a partir de meio centavo.
+    const dezPorCento = Math.floor((subtotal + 5) / 10);
+    // Math.min escolhe o MENOR: o desconto nunca passa de R$ 15,00 (1500 centavos)
+    desconto = Math.min(dezPorCento, 1500);
+    cupomAplicado = "LINCE10";
+  } else if (codigo === "FRETEGRATIS") {
+    frete = 0; // este cupom zera o frete
+    cupomAplicado = "FRETEGRATIS";
+  }
+  // Qualquer outro texto não entra em nenhum "if": é ignorado, sem erro (regra 6).
+
+  // REGRA 10: total = subtotal - desconto + frete.
+  const total = subtotal - desconto + frete;
+  return { subtotal, desconto, frete, total, cupomAplicado };
+}
+
+// fecharPedido: a função pedida no teste. Devolve SEMPRE um texto.
+function fecharPedido(itens, distanciaKm, cupom) {
+  const resultado = calcularPedido(itens, distanciaKm, cupom); // faz a conta
+  if (resultado.erro) {
+    return resultado.erro; // se deu erro, devolve a mensagem de erro
+  }
+  return formatarReais(resultado.total); // senão devolve o total, como "R$ 55,00"
+}
+
+// formatarReais: transforma 5500 (centavos) em "R$ 55,00".
+function formatarReais(centavos) {
+  // centavos / 100 vira reais; toFixed(2) força 2 casas; replace troca ponto por vírgula
+  return "R$ " + (centavos / 100).toFixed(2).replace(".", ",");
+}
+
+/* =====================================================================
+   A INTERFACE (cardápio, sacola, testes). Usa as funções acima.
+   ===================================================================== */
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+  var MENU = [
+    { id: "burger", cat: "Lanches", nome: "Burger Clássico", desc: "Pão brioche, carne 150 g, queijo e molho da casa", preco: 28.9, emoji: "🍔", cor: "#FFE9D2" },
+    { id: "xbacon", cat: "Lanches", nome: "X-Bacon", desc: "Duas carnes, bacon crocante e cheddar", preco: 34.9, emoji: "🥓", cor: "#FFE1E1" },
+    { id: "pastel", cat: "Lanches", nome: "Combo 2 pastéis", desc: "Carne e queijo, fritos na hora", preco: 19.0, emoji: "🥟", cor: "#FFF3C9" },
+    { id: "margherita", cat: "Pizzas", nome: "Pizza Margherita", desc: "Molho de tomate, muçarela e manjericão", preco: 42.0, emoji: "🍕", cor: "#FFE4D6" },
+    { id: "calabresa", cat: "Pizzas", nome: "Pizza Calabresa", desc: "Calabresa fatiada, cebola e azeitona", preco: 45.0, emoji: "🍕", cor: "#FFDDD0" },
+    { id: "sushi", cat: "Pizzas", nome: "Combo Sushi 16 peças", desc: "Salmão, atum e kani, com shoyu", preco: 58.0, emoji: "🍣", cor: "#E4F3EC" },
+    { id: "batata", cat: "Porções", nome: "Batata frita", desc: "Porção média, com sal e páprica", preco: 14.5, emoji: "🍟", cor: "#FFF3C9" },
+    { id: "salada", cat: "Porções", nome: "Salada da casa", desc: "Folhas, tomate, cenoura e molho de limão", preco: 22.0, emoji: "🥗", cor: "#E4F3E0" },
+    { id: "refri", cat: "Bebidas", nome: "Refrigerante lata", desc: "350 ml, bem gelado", preco: 6.0, emoji: "🥤", cor: "#E3EEFB" },
+    { id: "suco", cat: "Bebidas", nome: "Suco natural", desc: "Laranja, 400 ml, sem açúcar", preco: 9.0, emoji: "🍹", cor: "#FFEBCB" },
+    { id: "acai", cat: "Sobremesas", nome: "Açaí 300 ml", desc: "Com banana e granola", preco: 16.0, emoji: "🍇", cor: "#EBE1F7" },
+    { id: "brownie", cat: "Sobremesas", nome: "Brownie", desc: "Chocolate meio amargo, com nozes", preco: 12.0, emoji: "🍫", cor: "#EFE0D6" }
+  ];
+  var CATS = ["Todos", "Lanches", "Pizzas", "Porções", "Bebidas", "Sobremesas"];
+  var byId = {}; MENU.forEach(function (m) { byId[m.id] = m; });
+
+  // Estado: sacola de exemplo, para o app já abrir funcionando
+  var cart = { xbacon: 1, batata: 1, refri: 2 };
+  var km = 3.5;
+  var cupom = "";
+  var cat = "Todos";
+
+  /* ---------- Abas ---------- */
+  var panels = { pedir: $("p-pedir"), codigo: $("p-codigo"), testes: $("p-testes"), raiox: $("p-raiox") };
+  function show(name) {
+    Object.keys(panels).forEach(function (k) {
+      panels[k].hidden = k !== name;
+      $("tab-" + k).setAttribute("aria-selected", String(k === name));
+    });
+    $("mbar").hidden = name !== "pedir";
+    window.scrollTo(0, 0);
+  }
+  ["pedir", "codigo", "testes", "raiox"].forEach(function (k) { $("tab-" + k).addEventListener("click", function () { show(k); }); });
+
+  /* ---------- Cardápio ---------- */
+  function drawCats() {
+    $("cats").innerHTML = CATS.map(function (c) { return "<button type=\"button\" data-cat=\"" + c + "\" aria-pressed=\"" + (c === cat) + "\">" + c + "</button>"; }).join("");
+  }
+  function drawMenu() {
+    $("menu").innerHTML = MENU.filter(function (m) { return cat === "Todos" || m.cat === cat; }).map(function (m) {
+      var q = cart[m.id] || 0;
+      var ctl = q > 0
+        ? "<div class=\"step\"><button type=\"button\" data-dec=\"" + m.id + "\" aria-label=\"Menos " + esc(m.nome) + "\">−</button><span>" + q + "</span><button type=\"button\" data-inc=\"" + m.id + "\" aria-label=\"Mais " + esc(m.nome) + "\">+</button></div>"
+        : "<button class=\"add\" type=\"button\" data-inc=\"" + m.id + "\">Adicionar</button>";
+      return "<article class=\"dish\"><div class=\"art\" style=\"background:" + m.cor + "\" aria-hidden=\"true\">" + m.emoji + "</div><h3>" + esc(m.nome) + "</h3><p>" + esc(m.desc) + "</p><div class=\"row\"><span class=\"price\">" + formatarReais(Math.round(m.preco * 100)) + "</span>" + ctl + "</div></article>";
+    }).join("");
+  }
+  $("cats").addEventListener("click", function (e) { var b = e.target.closest("[data-cat]"); if (b) { cat = b.dataset.cat; drawCats(); drawMenu(); } });
+  function change(id, d) { var n = (cart[id] || 0) + d; if (n <= 0) delete cart[id]; else cart[id] = n; drawMenu(); drawBag(); }
+  document.addEventListener("click", function (e) {
+    var i = e.target.closest("[data-inc]"), d = e.target.closest("[data-dec]");
+    if (i) change(i.dataset.inc, 1);
+    if (d) change(d.dataset.dec, -1);
+  });
+
+  /* ---------- Sacola ---------- */
+  function listaItens() { return Object.keys(cart).map(function (id) { return [byId[id].preco, cart[id]]; }); }
+
+  function drawBag() {
+    var ids = Object.keys(cart);
+    var qtd = ids.reduce(function (s, id) { return s + cart[id]; }, 0);
+    $("bagcount").textContent = qtd ? qtd + (qtd === 1 ? " item" : " itens") : "";
+    $("lines").innerHTML = ids.length ? ids.map(function (id) {
+      var m = byId[id], q = cart[id];
+      return "<div class=\"cartline\"><b>" + esc(m.nome) + "</b><div class=\"step\"><button type=\"button\" data-dec=\"" + id + "\" aria-label=\"Menos " + esc(m.nome) + "\">−</button><span>" + q + "</span><button type=\"button\" data-inc=\"" + id + "\" aria-label=\"Mais " + esc(m.nome) + "\">+</button></div><span class=\"sub\">" + q + " × " + formatarReais(Math.round(m.preco * 100)) + "</span><span class=\"sub\" style=\"text-align:right\">" + formatarReais(Math.round(m.preco * 100) * q) + "</span></div>";
+    }).join("") : "<div class=\"empty\">Sua sacola está vazia. Adicione itens do cardápio.</div>";
+
+    $("kmout").textContent = String(km).replace(".", ",") + " km";
+    $("done").innerHTML = "";
+
+    var itens = listaItens();
+    var r = calcularPedido(itens, km, cupom);   // detalhes para mostrar as linhas
+    var texto = fecharPedido(itens, km, cupom); // o total vem da função do teste
+    var s = $("summary");
+    var cta = $("finish");
+
+    if (!ids.length) {
+      s.innerHTML = ""; cta.disabled = true; $("mtotal").textContent = "";
+      $("mcount").textContent = "Sacola vazia"; return;
+    }
+    if (r.erro) {
+      var amigavel = r.erro.indexOf("mínimo") > -1 ? "O pedido mínimo é de R$ 20,00. Adicione mais itens."
+        : r.erro.indexOf("fora") > -1 ? "Esta distância está fora da área de entrega (até 8 km)."
+        : r.erro.indexOf("distância") > -1 ? "A distância informada não é válida."
+        : "Há um item com quantidade ou preço inválido.";
+      s.innerHTML = "<div class=\"alert\">" + amigavel + "<code>fecharPedido devolveu: " + esc(texto) + "</code></div>";
+      cta.disabled = true; $("mtotal").textContent = "—";
+    } else {
+      s.innerHTML = "<div class=\"sum\">" +
+        "<div class=\"l\"><span>Subtotal</span><span>" + formatarReais(r.subtotal) + "</span></div>" +
+        "<div class=\"l\"><span>Frete</span><span>" + (r.frete === 0 ? "Grátis" : formatarReais(r.frete)) + "</span></div>" +
+        (r.desconto > 0 ? "<div class=\"l g\"><span>Desconto " + esc(r.cupomAplicado) + "</span><span>− " + formatarReais(r.desconto) + "</span></div>" : "") +
+        "<div class=\"tot\"><span>Total</span><span>" + esc(texto) + "</span></div>" +
+        "<div class=\"fn\">fecharPedido devolveu: \"" + esc(texto) + "\"</div></div>";
+      cta.disabled = false; $("mtotal").textContent = texto;
+    }
+    $("mcount").textContent = "Ver sacola · " + qtd + (qtd === 1 ? " item" : " itens");
+  }
+
+  function drawCupomNote() {
+    var raw = cupom.trim();
+    var n = $("cupomnote");
+    if (!raw) { n.innerHTML = ""; return; }
+    var r = calcularPedido(listaItens().length ? listaItens() : [[100, 1]], km, cupom);
+    if (r.cupomAplicado) n.innerHTML = "<div class=\"note ok\">Cupom " + esc(r.cupomAplicado) + " reconhecido.</div>";
+    else n.innerHTML = "<div class=\"note info\">Cupom \"" + esc(raw) + "\" não existe. O pedido segue sem desconto e sem erro.</div>";
+  }
+
+  function setCupom(v) { cupom = v; $("cupom").value = v; drawBag(); drawCupomNote(); }
+  $("apply").addEventListener("click", function () { cupom = $("cupom").value; drawBag(); drawCupomNote(); });
+  $("cupom").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); $("apply").click(); } });
+  document.querySelectorAll("[data-cupom]").forEach(function (b) { b.addEventListener("click", function () { setCupom(b.dataset.cupom); }); });
+  $("km").addEventListener("input", function (e) { km = parseFloat(e.target.value); drawBag(); drawCupomNote(); });
+  $("finish").addEventListener("click", function () {
+    $("done").innerHTML = "<div class=\"done\">Pedido simulado. Nenhum pedido real foi enviado, isto é só uma demonstração.</div>";
+  });
+  $("mbtn").addEventListener("click", function () { $("bag").scrollIntoView({ behavior: "smooth", block: "start" }); });
+
+  /* ---------- Código na tela (o texto real das funções) ---------- */
+  var src = [calcularPedido, fecharPedido, formatarReais].map(function (f) { return f.toString(); }).join("\n\n");
+  $("source").innerHTML = esc(src)
+    .replace(/(\/\/.*)$/gm, "<span class=\"c\">$1</span>")
+    .replace(/\b(function|const|let|return|for|of|if|else)\b(?![^<]*<\/span>)/g, "<span class=\"k\">$1</span>");
+
+  /* ---------- Testes ---------- */
+  var CASOS = [
+    [1, [[25, 2]], 2, "", "R$ 55,00"],
+    [2, [[12.5, 1], [8, 2]], 5, "", "R$ 37,50"],
+    [3, [[15, 1]], 1, "", "ERRO: pedido mínimo de R$ 20,00"],
+    [4, [[40, 3]], 6, "", "R$ 120,00"],
+    [5, [[30, 2]], 2, "LINCE10", "R$ 59,00"],
+    [6, [[90, 2]], 4, "LINCE10", "R$ 165,00"],
+    [7, [[22, 1]], 9, "", "ERRO: fora da área de entrega"],
+    [8, [[22, 1]], 3, "  fretegratis ", "R$ 22,00"],
+    [9, [[10, 0]], 2, "", "ERRO: item inválido"],
+    [10, [[25, 1]], 8, "CUPOMFAKE", "R$ 34,00"]
+  ];
+  function chamada(itens, k, c) {
+    return "fecharPedido([" + itens.map(function (x) { return "[" + x[0] + ", " + x[1] + "]"; }).join(", ") + "], " + k + ", \"" + c + "\")";
+  }
+  function runAll() {
+    var ok = 0;
+    $("cases").innerHTML = CASOS.map(function (c) {
+      var got = fecharPedido(c[1], c[2], c[3]);
+      var p = got === c[4]; if (p) ok++;
+      return "<tr><td class=\"m\">" + c[0] + "</td><td class=\"m\">" + esc(chamada(c[1], c[2], c[3])) + "</td><td class=\"m\">" + esc(c[4]) + "</td><td class=\"m\">" + esc(got) + "</td><td class=\"" + (p ? "yes" : "no") + "\">" + (p ? "Sim" : "NÃO") + "</td></tr>";
+    }).join("");
+    $("score").textContent = ok + " de 10 passaram";
+    $("score").className = "big " + (ok === 10 ? "yes" : "no");
+  }
+  // Erro da IA: valores "Antes" medidos no código sem validação (R$ 30,00 e R$ 35,00)
+  var ACHADOS = [
+    ["Distância negativa (−4 km)", [[25, 1]], -4, "", "R$ 30,00", "ERRO: distância inválida"],
+    ["Quantidade quebrada (1,5)", [[20, 1.5]], 2, "", "R$ 35,00", "ERRO: item inválido"]
+  ];
+  function drawFindings() {
+    $("finds").innerHTML = ACHADOS.map(function (a) {
+      var got = fecharPedido(a[1], a[2], a[3]);
+      var p = got === a[5];
+      return "<tr><td>" + a[0] + "</td><td class=\"m\">" + esc(chamada(a[1], a[2], a[3])) + "</td><td class=\"m no\">" + esc(a[4]) + "</td><td class=\"m\">" + esc(got) + "</td><td class=\"m\">" + esc(a[5]) + "</td><td class=\"" + (p ? "yes" : "no") + "\">" + (p ? "Sim" : "NÃO") + "</td></tr>";
+    }).join("");
+  }
+  $("run").addEventListener("click", function () { runAll(); drawFindings(); });
+
+  function parseItens(txt) {
+    var parts = txt.split("+"), out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var m = parts[i].trim().match(/^(-?[\d.,]+)\s*[x×*]\s*(-?\d+)$/i);
+      if (!m) return null;
+      out.push([parseFloat(m[1].replace(",", ".")), parseInt(m[2], 10)]);
+    }
+    return out;
+  }
+  $("tester").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var itens = parseItens($("t-itens").value);
+    var k = parseFloat($("t-km").value);
+    var res = $("t-res");
+    if (!itens || isNaN(k)) { res.textContent = "Não entendi os itens ou a distância. Use o formato 12.50x1 + 8x2."; return; }
+    var cup = $("t-cupom").value;
+    var got = fecharPedido(itens, k, cup);
+    var esp = $("t-esp").value;
+    var p = got === esp;
+    res.innerHTML = "<div>Chamada: " + esc(chamada(itens, k, cup)) + "</div><div>Esperado: " + esc(esp) + "</div><div>Obtido: " + esc(got) + "</div><div class=\"" + (p ? "yes" : "no") + "\">" + (p ? "Passou: Sim" : "Passou: NÃO") + "</div>";
+  });
+
+  /* ---------- Início ---------- */
+  drawCats(); drawMenu(); drawBag(); runAll(); drawFindings();
+})();
+</script>
+
+</body>
+</html>
