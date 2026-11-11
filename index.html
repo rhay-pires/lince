@@ -632,7 +632,6 @@ function formatarReais(centavos) {
     var p = (espC !== null && gotC !== null) ? espC === gotC : esp.toLowerCase() === got.toLowerCase();
 
     var html = "<div>Chamada: " + esc(chamada(itens, k, cup)) + "</div><div>Esperado: " + esc(esp) + "</div><div>Obtido: " + esc(got) + "</div>";
-    html += "<div class=\"" + (p ? "yes" : "no") + "\">" + (p ? "Passou: Sim" : "Passou: NÃO") + "</div>";
 
     if (!p) {
       var porque = [];
