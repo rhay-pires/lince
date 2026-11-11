@@ -269,7 +269,7 @@ td.m { font-family: var(--mono); font-size: 0.8rem; }
       <div class="field"><label for="t-itens">Itens</label><input id="t-itens" type="text" value="22x1"></div>
       <div class="field"><label for="t-km">Distância (km)</label><input id="t-km" type="number" step="0.5" value="3"></div>
       <div class="field"><label for="t-cupom">Cupom</label><input id="t-cupom" type="text" value=""></div>
-      <div class="field"><label for="t-esp">Saída esperada</label><input id="t-esp" type="text" value="" placeholder="opcional, ex.: R$ 49,00"></div>
+      <div class="field"><label for="t-esp">Saída esperada (automática, pode editar)</label><input id="t-esp" type="text" value="" placeholder="preenche sozinha"></div>
     </div>
     <div><button class="cta" type="submit" style="width:auto;padding:11px 22px">Rodar este caso</button></div>
     <div class="res" id="t-res" aria-live="polite">Preencha e rode para ver o resultado.</div>
@@ -357,10 +357,13 @@ function calcularPedido(itens, distanciaKm, cupom) {
   let cupomAplicado = null; // guarda qual cupom valeu (só para mostrar na tela)
 
   if (codigo === "LINCE10") {
-    // 10% do subtotal. (subtotal + 5) / 10 arredonda para cima a partir de meio centavo.
-    const dezPorCento = Math.floor((subtotal + 5) / 10);
-    // Math.min escolhe o MENOR: o desconto nunca passa de R$ 15,00 (1500 centavos)
-    desconto = Math.min(dezPorCento, 1500);
+    // 10% do subtotal. Em centavos, 10% do subtotal é subtotal/10, então em DÉCIMOS de centavo é só o subtotal.
+    // Math.min escolhe o MENOR: o desconto nunca passa de R$ 15,00 (15000 décimos de centavo).
+    // CORREÇÃO 3: o desconto NÃO é arredondado sozinho; só o total é arredondado (meio centavo sobe),
+    // igual ao código Python original. Antes, arredondar o desconto antes dava 1 centavo a menos em alguns pedidos.
+    const desconto10 = Math.min(subtotal, 15000);
+    const totalExato = Math.floor(((subtotal + frete) * 10 - desconto10 + 5) / 10);
+    desconto = subtotal + frete - totalExato; // desconto efetivo em centavos (para mostrar na sacola)
     cupomAplicado = "LINCE10";
   } else if (codigo === "FRETEGRATIS") {
     frete = 0; // este cupom zera o frete
@@ -569,6 +572,39 @@ function formatarReais(centavos) {
     }
     return out;
   }
+  /* Saída esperada automática: um cálculo SEPARADO do programa, escrito direto das 10 regras do
+     enunciado (em reais, só para conferir). Se o programa e este cálculo discordarem, o teste dá NÃO. */
+  function esperadoPelasRegras(itens, km, cupom) {
+    // Tudo em centavos inteiros; o desconto fica em décimos de centavo, sem arredondar antes da hora
+    // (o arredondamento para centavos acontece uma vez só, no total, como no código Python original).
+    var sub = 0, i;
+    for (i = 0; i < itens.length; i++) {
+      var pr = itens[i][0], q = itens[i][1];
+      if (q <= 0 || pr < 0 || q % 1 !== 0) return "ERRO: item inválido";   // regra 2
+      sub += Math.round(pr * 100) * q;                                        // regra 1
+    }
+    if (sub < 2000) return "ERRO: pedido mínimo de R$ 20,00";                // regra 3
+    if (km < 0) return "ERRO: distância inválida";
+    if (km > 8) return "ERRO: fora da área de entrega";                      // regra 4
+    var frete = km <= 3 ? 500 : 900;
+    if (sub >= 10000) frete = 0;                                             // regra 5
+    var cod = String(cupom || "").trim().toUpperCase(), desc10 = 0;          // regras 6 e 7
+    if (cod === "LINCE10") desc10 = Math.min(sub, 15000);                    // 10% do subtotal, no máx. R$ 15,00
+    else if (cod === "FRETEGRATIS") frete = 0;
+    var total10 = (sub + frete) * 10 - desc10;                               // regra 10
+    var total = Math.floor((total10 + 5) / 10) / 100;                        // arredonda meio centavo para cima
+    return "R$ " + total.toFixed(2).replace(".", ",");
+  }
+  var espManual = false;
+  function autoEsperado() {
+    if (espManual) return;
+    var it = parseItens($("t-itens").value), k = parseFloat($("t-km").value);
+    $("t-esp").value = (!it || isNaN(k)) ? "" : esperadoPelasRegras(it, k, $("t-cupom").value);
+  }
+  ["t-itens", "t-km", "t-cupom"].forEach(function (id) { $(id).addEventListener("input", autoEsperado); });
+  $("t-esp").addEventListener("input", function () { espManual = $("t-esp").value.trim() !== ""; if (!espManual) autoEsperado(); });
+  autoEsperado();
+
   $("tester").addEventListener("submit", function (e) {
     e.preventDefault();
     var itens = parseItens($("t-itens").value);
